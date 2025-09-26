@@ -1,27 +1,39 @@
-// src/components/Board3D.jsx
+// src/components/Board3D.jsx - CORREGIDO
 import React, { useEffect, useState, useRef } from 'react';
-import { Canvas } from '@react-three/fiber';
-import { OrbitControls, Environment, Sky } from '@react-three/drei';
 import io from 'socket.io-client';
 import Card3D from './Card3D';
-import Maiz3D from './Maiz3D';
+import JoinScreen from './JoinScreen';
 import { audioManager } from '../utils/AudioManager';
 import { checkWin, generateEmptyDrawn } from '../utils/game';
 
 const socket = io('http://localhost:3000');
 
-const Board3D = ({ playerName, roomId }) => {
+export default function Board3D() {
+  const [playerName, setPlayerName] = useState('');
+  const [roomId, setRoomId] = useState('');
   const [board, setBoard] = useState([]);
   const [markedCards, setMarkedCards] = useState(generateEmptyDrawn());
   const [currentCard, setCurrentCard] = useState(null);
   const [patterns, setPatterns] = useState([]);
   const [winner, setWinner] = useState(null);
-  const [muted, setMuted] = useState(false);
+  const [gameStarted, setGameStarted] = useState(false);
 
   const boardRef = useRef(board);
+  const markedCardsRef = useRef(markedCards); // ✅ AGREGAR ESTA LÍNEA
+  
   boardRef.current = board;
+  markedCardsRef.current = markedCards; // ✅ AGREGAR ESTA LÍNEA
+
+  // Función para unirse al juego
+  const handleJoin = (name, room) => {
+    setPlayerName(name);
+    setRoomId(room);
+    setGameStarted(true);
+  };
 
   useEffect(() => {
+    if (!gameStarted) return;
+
     socket.emit('joinRoom', { roomId, playerName });
 
     const handleBoard = ({ board: serverBoard, rows, cols }) => {
@@ -29,11 +41,11 @@ const Board3D = ({ playerName, roomId }) => {
       setMarkedCards(generateEmptyDrawn());
       setCurrentCard(null);
       setWinner(null);
-      
+
       const winPatterns = generateWinPatterns(rows, cols);
       setPatterns(winPatterns);
 
-      // Precargar sonidos para las cartas del tablero
+      // Precargar sonidos
       serverBoard.forEach(card => {
         audioManager.preloadCardSound(card);
       });
@@ -42,6 +54,11 @@ const Board3D = ({ playerName, roomId }) => {
     const handleCardDrawn = ({ card }) => {
       setCurrentCard(card);
       audioManager.playCardSound(card);
+    };
+
+    // ✅ AGREGAR handleNoMoreCards QUE FALTABA
+    const handleNoMoreCards = () => {
+      alert('¡Se terminaron las cartas!');
     };
 
     const handleSomeoneWon = ({ player, winningCards }) => {
@@ -64,18 +81,18 @@ const Board3D = ({ playerName, roomId }) => {
 
     socket.on('board', handleBoard);
     socket.on('cardDrawn', handleCardDrawn);
+    socket.on('noMoreCards', handleNoMoreCards); // ✅ AHORA SÍ EXISTE
     socket.on('someoneWon', handleSomeoneWon);
     socket.on('claimResult', handleClaimResult);
-    socket.on('noMoreCards', () => alert('¡Se terminaron las cartas!'));
 
     return () => {
       socket.off('board', handleBoard);
       socket.off('cardDrawn', handleCardDrawn);
+      socket.off('noMoreCards', handleNoMoreCards);
       socket.off('someoneWon', handleSomeoneWon);
       socket.off('claimResult', handleClaimResult);
-      socket.off('noMoreCards');
     };
-  }, [roomId, playerName]);
+  }, [gameStarted, roomId, playerName]);
 
   const generateWinPatterns = (rows, cols) => {
     const patterns = [];
@@ -101,218 +118,155 @@ const Board3D = ({ playerName, roomId }) => {
     return patterns;
   };
 
-  const getCardPosition = (index) => {
-    const row = Math.floor(index / 4);
-    const col = index % 4;
-    return [col * 2.2 - 3.3, -row * 2.5 + 3.5, 0];
+  const handleDraw = () => {
+    socket.emit('drawCard', { roomId });
   };
 
-  const handleDraw = () => socket.emit('drawCard', { roomId });
-  const handleClaim = () => socket.emit('claimWin', { roomId, markedCards: Array.from(markedCards) });
+  const handleClaim = () => {
+    // ✅ CORREGIDO: usar markedCardsRef.current que ahora sí existe
+    socket.emit('claimWin', { roomId, markedCards: Array.from(markedCardsRef.current) });
+  };
 
   const toggleCard = (card) => {
-    if (winner) return;
     setMarkedCards(prev => {
       const newSet = new Set(prev);
-      newSet.has(card) ? newSet.delete(card) : newSet.add(card);
+      if (newSet.has(card)) {
+        newSet.delete(card);
+      } else {
+        newSet.add(card);
+      }
       return newSet;
     });
   };
 
-  const toggleMute = () => {
-    const isMuted = audioManager.toggleMute();
-    setMuted(isMuted);
-  };
-
   const hasWinningPattern = checkWin(board, markedCards, patterns);
 
+  if (!gameStarted) {
+    return <JoinScreen onJoin={handleJoin} />;
+  }
+
   return (
-    <div style={{ width: '100vw', height: '100vh', position: 'relative' }}>
-      {/* UI Overlay */}
-      <div style={uiOverlayStyle}>
-        <div style={panelStyle}>
-          <h2 style={{ margin: 0, color: '#333' }}>🎯 {playerName}</h2>
-          <p style={{ margin: '5px 0', color: '#666' }}>Sala: {roomId}</p>
-          
-          <div style={cardInfoStyle}>
-            <h3 style={{ margin: 0, color: currentCard ? '#4CAF50' : '#999' }}>
-              {currentCard ? `📢 "${currentCard}"` : 'Esperando carta...'}
-            </h3>
-          </div>
+    <div style={{ padding: '20px', fontFamily: 'Arial, sans-serif' }}>
+      <h2>Jugador: {playerName}</h2>
+      <h3>Sala: {roomId}</h3>
 
-          <div style={buttonContainerStyle}>
-            <button 
-              onClick={handleDraw}
-              disabled={winner}
-              style={buttonStyle(winner ? '#ccc' : '#4CAF50')}
-            >
-              🎴 Cantar Carta
-            </button>
-            
-            <button 
-              onClick={handleClaim} 
-              disabled={!markedCards.size || winner}
-              style={buttonStyle(
-                winner ? '#ccc' : 
-                hasWinningPattern ? '#FF9800' : 
-                !markedCards.size ? '#ccc' : '#F44336'
-              )}
-            >
-              {hasWinningPattern ? '🎉 ¡Lotería!' : '⚡ Reclamar'}
-            </button>
-
-            <button 
-              onClick={toggleMute}
-              style={buttonStyle(muted ? '#666' : '#9C27B0')}
-            >
-              {muted ? '🔇 Sonido' : '🔊 Sonido'}
-            </button>
-          </div>
-
-          {hasWinningPattern && !winner && (
-            <p style={{ color: '#4CAF50', fontWeight: 'bold', margin: '10px 0' }}>
-              ✅ ¡Tienes un patrón ganador!
-            </p>
-          )}
-        </div>
-
-        {/* Stats Panel */}
-        <div style={statsPanelStyle}>
-          <p>📍 Marcadas: <strong>{markedCards.size}/16</strong></p>
-          <p>🎯 Patrón: <strong>{hasWinningPattern ? '✅ Válido' : '❌ Inválido'}</strong></p>
-          {winner && <p>🏆 Ganador: <strong>{winner}</strong></p>}
-        </div>
-      </div>
-
-      {/* Canvas 3D */}
-      <Canvas camera={{ position: [0, 0, 10], fov: 50 }}>
-        <ambientLight intensity={0.6} />
-        <directionalLight position={[5, 5, 5]} intensity={0.8} />
-        <pointLight position={[-5, 5, 5]} intensity={0.5} />
-        
-        <Environment preset="sunset" />
-        <Sky sunPosition={[100, 10, 100]} />
-
-        {/* Suelo */}
-        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -2, 0]} receiveShadow>
-          <planeGeometry args={[20, 20]} />
-          <meshStandardMaterial color="#2d5016" roughness={0.8} />
-        </mesh>
-
-        {/* Cartas 3D */}
-        {board.map((card, index) => (
-          <Card3D
-            key={index}
-            card={card}
-            selected={markedCards.has(card)}
-            isCurrent={currentCard === card}
-            onClick={() => toggleCard(card)}
-            position={getCardPosition(index)}
-          />
-        ))}
-
-        <OrbitControls 
-          enableZoom={true} 
-          enablePan={true}
-          minDistance={5}
-          maxDistance={20}
-          enableDamping
-          dampingFactor={0.05}
-        />
-      </Canvas>
-
-      {/* Notificación de ganador */}
       {winner && (
-        <div style={winnerOverlayStyle}>
-          <div style={winnerModalStyle}>
-            <h1>🏆 {winner === playerName ? '¡ERES EL GANADOR!' : `¡${winner} GANÓ!`} 🏆</h1>
-            <p>¡Felicidades por completar la lotería mexicana!</p>
-          </div>
+        <div style={winnerStyle(winner === playerName)}>
+          {winner === playerName ? '🎉 ¡ERES EL GANADOR! 🎉' : `🎉 ${winner} GANÓ LA PARTIDA 🎉`}
         </div>
       )}
+
+      <div style={controlPanelStyle}>
+        <h3 style={{ color: currentCard ? '#4CAF50' : '#666' }}>
+          {currentCard ? `Carta cantada: "${currentCard}"` : 'Presiona "Cantar Carta"'}
+        </h3>
+
+        <div style={buttonContainerStyle}>
+          <button onClick={handleDraw} disabled={winner} style={buttonStyle(winner ? '#ccc' : '#4CAF50')}>
+            Cantar Carta
+          </button>
+          <button onClick={handleClaim} disabled={markedCards.size === 0 || winner} 
+            style={buttonStyle(
+              winner ? '#ccc' : 
+              hasWinningPattern ? '#ff9800' : 
+              markedCards.size === 0 ? '#ccc' : '#f44336'
+            )}>
+            {hasWinningPattern ? '🎉 ¡Gritar loteria!' : 'Reclamar Victoria'}
+          </button>
+        </div>
+
+        {hasWinningPattern && !winner && (
+          <p style={{ color: '#4CAF50', fontWeight: 'bold', marginTop: '10px' }}>
+            ✅ ¡Tienes un patrón ganador! Puedes reclamar victoria
+          </p>
+        )}
+      </div>
+
+      {/* Grid de cartas 3D */}
+      <div style={gridStyle}>
+        {board.map((card, idx) => (
+          <Card3D
+            key={idx}
+            card={card}
+            selected={markedCards.has(card)}
+            onClick={() => !winner && toggleCard(card)}
+            isCurrent={currentCard === card}
+          />
+        ))}
+      </div>
+
+      {/* Información adicional */}
+      <div style={instructionsStyle}>
+        <h4>🎯 Instrucciones:</h4>
+        <p>1. Presiona "Cantar Carta" para revelar una carta</p>
+        <p>2. Marca las casillas que coincidan con las cartas cantadas</p>
+        <p>3. Cuando completes un patrón, presiona "¡Gritar loteria!"</p>
+      </div>
+      
+      <div style={statsStyle}>
+        <p>📍 <strong>Cartas marcadas:</strong> {markedCards.size} / 16</p>
+        <p>🎯 <strong>Patrón válido:</strong> {hasWinningPattern ? '✅ Sí' : '❌ No'}</p>
+        {winner && <p>🏆 <strong>Ganador:</strong> {winner}</p>}
+      </div>
     </div>
   );
-};
+}
 
 // Estilos
-const uiOverlayStyle = {
-  position: 'absolute',
-  top: 0,
-  left: 0,
-  right: 0,
-  zIndex: 100,
-  pointerEvents: 'none'
-};
-
-const panelStyle = {
-  backgroundColor: 'rgba(255, 255, 255, 0.95)',
-  padding: '20px',
-  margin: '20px',
-  borderRadius: '15px',
-  backdropFilter: 'blur(10px)',
-  pointerEvents: 'auto',
-  boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
-};
-
-const cardInfoStyle = {
-  backgroundColor: 'rgba(240, 240, 240, 0.8)',
-  padding: '10px',
+const winnerStyle = (isPlayer) => ({
+  backgroundColor: isPlayer ? '#4CAF50' : '#ff9800',
+  color: 'white',
+  padding: '15px',
   borderRadius: '8px',
-  margin: '10px 0'
+  marginBottom: '20px',
+  textAlign: 'center',
+  fontSize: '18px'
+});
+
+const controlPanelStyle = {
+  backgroundColor: '#f0f0f0',
+  padding: '15px',
+  borderRadius: '8px',
+  marginBottom: '20px',
+  textAlign: 'center'
 };
 
 const buttonContainerStyle = {
   display: 'flex',
+  justifyContent: 'center',
   gap: '10px',
-  flexWrap: 'wrap'
+  marginTop: '10px'
 };
 
-const buttonStyle = (bgColor) => ({
-  padding: '12px 20px',
-  backgroundColor: bgColor,
+const buttonStyle = (backgroundColor) => ({
+  padding: '10px 20px',
+  backgroundColor: backgroundColor,
   color: 'white',
   border: 'none',
-  borderRadius: '8px',
+  borderRadius: '4px',
   cursor: 'pointer',
-  fontSize: '14px',
-  fontWeight: 'bold',
-  transition: 'all 0.3s ease',
-  pointerEvents: 'auto'
+  fontSize: '16px'
 });
 
-const statsPanelStyle = {
-  backgroundColor: 'rgba(255, 255, 255, 0.9)',
-  padding: '15px',
-  margin: '20px',
-  borderRadius: '10px',
-  backdropFilter: 'blur(5px)',
-  pointerEvents: 'auto',
-  position: 'absolute',
-  top: 0,
-  right: 0,
-  width: '200px'
+const gridStyle = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(4, 1fr)',
+  gap: '15px',
+  margin: '20px auto',
+  maxWidth: '600px'
 };
 
-const winnerOverlayStyle = {
-  position: 'absolute',
-  top: 0,
-  left: 0,
-  right: 0,
-  bottom: 0,
-  backgroundColor: 'rgba(0,0,0,0.8)',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  zIndex: 1000
+const instructionsStyle = {
+  marginTop: '20px',
+  padding: '10px',
+  backgroundColor: '#e3f2fd',
+  borderRadius: '4px'
 };
 
-const winnerModalStyle = {
-  backgroundColor: 'rgba(255, 215, 0, 0.95)',
-  padding: '40px',
-  borderRadius: '20px',
-  textAlign: 'center',
-  color: '#000',
-  backdropFilter: 'blur(10px)'
+const statsStyle = {
+  marginTop: '15px',
+  padding: '10px',
+  backgroundColor: '#e8f5e8',
+  borderRadius: '4px',
+  textAlign: 'center'
 };
-
-export default Board3D;

@@ -1,87 +1,186 @@
-import React, { useEffect, useState, useRef } from 'react';
-import {useFrame} from '@react-three/fiber';
-import {Text} from '@react-three/drei';
+// src/components/Card3D.jsx
+import React, { useRef, useState, Suspense } from 'react';
+import { Canvas, useFrame } from '@react-three/fiber';
+import { useGLTF, OrbitControls, Center } from '@react-three/drei';
 
-const Card3D=({card, selected, onClick,position, isCurrent})=>{
-    const meshRef=useRef();
-    const groupRef=useRef();
+// Componente 3D interno MEJORADO
+const CardModel = ({ card, isSelected, isCurrent }) => {
+  const meshRef = useRef();
+  const groupRef = useRef();
+  
+  // Normalizar nombre del archivo
+  const normalizeCardName = (cardName) => {
+    return cardName.toLowerCase()
+      .replace(/\s+/g, '-')
+      .replace(/[^a-z0-9-]/g, '')
+      .replace('the-', '');
+  };
 
-    const [hovered, setHovered]=useState(false);
-
-    //Animacion de flotación y rotación
-
-    useFrame((state)=>{
-        if(groupRef.current){
-            //Flotación suave
-            groupRef.current.position.y=position[1]+Math.sin(state.clock.elapsedTime*2)*0.2;
-
-            //Rotacion sutil
-
-            if(hovered||selected){
-                groupRef.current.rotation.y=Math.sin(state.clock.elapsedTime*3)*0.1;
-            }else{
-                groupRef.current.rotation.y=Math.sin(state.clock.elapsedTime*0.5)*0.5;
-            }
-        }
-    });
-
-    const handleClick=(e)=>{
-        e.stopPropagation();
-        onClick();
+  // Cargar modelo específico o genérico
+  const specificModelPath = `/models/cartas/${normalizeCardName(card)}.glb`;
+  const genericModelPath = '/models/cartas/cartag.glb';
+  
+  let model = null;
+  try {
+    model = useGLTF(specificModelPath);
+  } catch (error) {
+    try {
+      model = useGLTF(genericModelPath);
+    } catch (e) {
+      console.log('No se pudo cargar ningún modelo 3D');
     }
+  }
+
+  useFrame((state) => {
+    if (groupRef.current) {
+      // Animación sutil
+      groupRef.current.rotation.y = Math.sin(state.clock.elapsedTime * 0.5) * 0.1;
+      
+      if (isSelected || isCurrent) {
+        groupRef.current.position.y = Math.sin(state.clock.elapsedTime * 3) * 0.02;
+      }
+    }
+  });
+
+  if (!model) {
     return (
-        <group ref={groupRef} position={position}>
-            {/* Base de la carta */}
-            <mesh ref={meshRef}
-                onClick={handleClick}
-                onPointerOver={(e)=>{
-                    e.stopPropagation();
-                    setHovered(true);
-                }}
-                onPointerOut={()=>setHovered(false)}
-                scale={hovered ? [1.1,1.1,1.1]: [1,1,1]}
-            >
-                <boxGeometry args={[0.8,1.1,0.05]}/>
-                <meshStandardMaterial
-                    color={
-                        selected ? '#ffd700':
-                        isCurrent ? '#ff6b6b':
-                        hovered ? '#87ceeb':'#8B4513'
-                    }
-                    roughness={0.7}
-                    metalness={selected ? 0.8:0.3}
-                />               
-            </mesh>
-            {/**Texto frontal de la carta */}
-            <Text
-                position={[0,0,0.3]}
-                fontSize={0.1}
-                color="#000"
-                anchorX="center"
-                anchorY="center"
-                maxWidth={0.7}
-                textAlign="center"
-            >
-                {card}
-            </Text>
-
-            {/**Maiz 3d cuando este seleccionado */}
-            {select && (
-                <mesh position={[0.25,0.35,0.1]} rotation={[0,0,Math.PI /6]}> 
-                    <sphereGeometry args={[0.15,8,8]}/>
-                    <meshStandardMaterial color="#ffd700" roughness={0.2} metalness={0.5} />
-                </mesh>
-            )}
-
-            {/**Efecto de resplandor para la carta actual */}
-            {isCurrent &&(
-               <pointLight position={[0,0,0.2]} intensity={0.5} color="#ff4444" />
-            )}
-
-
-        </group>
+      <mesh ref={meshRef}>
+        <boxGeometry args={[1, 1, 0.1]} />
+        <meshStandardMaterial color={isSelected ? '#ffd700' : isCurrent ? '#ff6b6b' : '#8B4513'} />
+      </mesh>
     );
+  }
 
+  return (
+    <group ref={groupRef}>
+      <Center> {/* 🔥 ESTA ES LA CLAVE - CENTRA EL MODELO */}
+        <primitive 
+          object={model.scene} 
+          rotation={[0, 0, 0]}
+          scale={0.8} // Ajustar escala según necesidad
+        />
+      </Center>
+    </group>
+  );
 };
+
+// Loading component mejorado
+const ModelLoading = () => (
+  <mesh>
+    <boxGeometry args={[1, 1, 0.1]} />
+    <meshStandardMaterial color="#cccccc" />
+  </mesh>
+);
+
+// Componente principal de la carta MEJORADO
+const Card3D = ({ card, selected, onClick, isCurrent }) => {
+  const [hovered, setHovered] = useState(false);
+
+  return (
+    <div
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        backgroundColor: selected ? '#ffe0b2' : isCurrent ? '#ffeb3b' : '#000000ff',
+        border: isCurrent ? '3px solid #f44336' : selected ? '2px solid #ff9800' : '2px solid #c33',
+        borderRadius: '8px',
+        padding: '8px', // Reducir padding para dar más espacio al 3D
+        textAlign: 'center',
+        height: '140px',
+        width: '100%',
+        cursor: 'pointer',
+        position: 'relative',
+        transition: 'all 0.3s ease',
+        transform: hovered ? 'scale(1.05)' : 'scale(1)',
+        overflow: 'hidden'
+      }}
+    >
+      {/* Canvas 3D integrado - CONFIGURACIÓN MEJORADA */}
+      <div style={{ 
+        height: '100px', // Más altura para el área 3D
+        width: '100%', 
+        marginBottom: '4px' 
+      }}>
+        <Canvas 
+          camera={{ 
+            position: [0, 0, 4], // Alejar más la cámara
+            fov: 45, // Reducir field of view
+            near: 0.1,
+            far: 100 
+          }}
+          style={{ 
+            borderRadius: '4px',
+            background: 'transparent'
+          }}
+        >
+          <ambientLight intensity={0.8} />
+          <directionalLight position={[5, 5, 5]} intensity={0.6} />
+          <pointLight position={[-5, -5, 5]} intensity={0.4} />
+          
+          <Suspense fallback={<ModelLoading />}>
+            <CardModel card={card} isSelected={selected} isCurrent={isCurrent} />
+          </Suspense>
+          
+          {/* Controles de cámara MEJORADOS */}
+          <OrbitControls 
+            enableZoom={false}
+            enablePan={false}
+            enableRotate={true}
+            minPolarAngle={Math.PI / 3}   // 60 grados
+            maxPolarAngle={Math.PI / 1.5} // 120 grados
+            minAzimuthAngle={-Math.PI / 4} // -45 grados
+            maxAzimuthAngle={Math.PI / 4}  // 45 grados
+            target={[0, 0, 0]} // 🔥 CENTRAR EL OBJETIVO
+          />
+        </Canvas>
+      </div>
+
+      {/* Nombre de la carta - MEJORADO */}
+      <div style={{ 
+        fontSize: '11px', 
+        fontWeight: 'bold',
+        color: selected || isCurrent ? '#000' : '#fff',
+        height: '16px',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+        padding: '0 2px'
+      }}>
+        {card}
+      </div>
+
+      {/* Indicadores */}
+      {selected && (
+        <div style={{ 
+          position: 'absolute', 
+          top: 3, 
+          right: 3, 
+          fontSize: '1rem',
+          filter: 'drop-shadow(0 0 2px rgba(0,0,0,0.5))',
+          zIndex: 10
+        }}>
+          🌽
+        </div>
+      )}
+      
+      {isCurrent && (
+        <div style={{ 
+          position: 'absolute', 
+          top: 3, 
+          left: 3, 
+          fontSize: '0.7rem',
+          filter: 'drop-shadow(0 0 2px rgba(0,0,0,0.5))',
+          zIndex: 10
+        }}>
+          🔥
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Precargar modelos
+useGLTF.preload('/models/cartas/cartag.glb');
 
 export default Card3D;
