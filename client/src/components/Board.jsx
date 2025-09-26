@@ -28,7 +28,7 @@ export default function Board({ playerName, roomId }) {
       setMarkedCards(generateEmptyDrawn());
       setCurrentCard(null);
       setWinner(null); // Reiniciar ganador al empezar nuevo juego
-      
+
       const winPatterns = generateWinPatterns(rows, cols);
       setPatterns(winPatterns);
     };
@@ -40,12 +40,12 @@ export default function Board({ playerName, roomId }) {
     const handleNoMoreCards = () => {
       alert('¡Se terminaron las cartas!');
     };
-    
+
     const handleSomeoneWon = ({ player, winningCards }) => {
       // ✅ ESTE ES EL MENSAJE QUE LLEGA A TODOS LOS JUGADORES
       setWinner(player);
       alert(`🎉 ${player} ganó la partida! 🎉\nPatrón ganador: ${winningCards.join(', ')}`);
-      
+
       // Reiniciar el tablero después de que alguien gane
       setMarkedCards(generateEmptyDrawn());
       setCurrentCard(null);
@@ -54,12 +54,19 @@ export default function Board({ playerName, roomId }) {
     const handleClaimResult = (result) => {
       if (result.win) {
         const winningCards = result.pattern.map(i => boardRef.current[i]);
-        alert(`🎉 ¡Felicidades! Ganaste 🎉\nPatrón ganador: ${winningCards.join(', ')}`);
+        alert(`🎉 ¡Felicidades! Ganaste 🎉\nPatrón: ${winningCards.join(', ')}`);
         setMarkedCards(generateEmptyDrawn());
         setCurrentCard(null);
-        setWinner(playerName); // Tú eres el ganador
+        setWinner(playerName);
       } else {
-        alert('❌ Reclamo incorrecto. No tienes un patrón ganador válido.');
+        // ✅ Manejar el nuevo error del servidor
+        if (result.error) {
+          alert(result.error);
+          // Opcional: Castigo por trampa
+          // setMarkedCards(generateEmptyDrawn());
+        } else {
+          alert('❌ No tienes un patrón ganador válido.');
+        }
       }
     };
 
@@ -128,7 +135,7 @@ export default function Board({ playerName, roomId }) {
     <div style={{ padding: '20px', fontFamily: 'Arial, sans-serif' }}>
       <h2>Jugador: {playerName}</h2>
       <h3>Sala: {roomId}</h3>
-      
+
       {/* ✅ MOSTRAR GANADOR ACTUAL */}
       {winner && (
         <div style={{
@@ -143,20 +150,20 @@ export default function Board({ playerName, roomId }) {
           {winner === playerName ? '🎉 ¡ERES EL GANADOR! 🎉' : `🎉 ${winner} GANÓ LA PARTIDA 🎉`}
         </div>
       )}
-      
-      <div style={{ 
-        backgroundColor: '#f0f0f0', 
-        padding: '15px', 
-        borderRadius: '8px', 
+
+      <div style={{
+        backgroundColor: '#f0f0f0',
+        padding: '15px',
+        borderRadius: '8px',
         marginBottom: '20px',
         textAlign: 'center'
       }}>
         <h3 style={{ margin: '0 0 10px 0', color: currentCard ? '#4CAF50' : '#666' }}>
           {currentCard ? `Carta cantada: "${currentCard}"` : 'Presiona "Cantar Carta"'}
         </h3>
-        
+
         <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginTop: '10px' }}>
-          <button 
+          <button
             onClick={handleDraw}
             disabled={winner} // Deshabilitar si ya hay ganador
             style={{
@@ -171,9 +178,9 @@ export default function Board({ playerName, roomId }) {
           >
             Cantar Carta
           </button>
-          
-          <button 
-            onClick={handleClaim} 
+
+          <button
+            onClick={handleClaim}
             disabled={markedCards.size === 0 || winner}
             style={{
               padding: '10px 20px',
@@ -185,37 +192,37 @@ export default function Board({ playerName, roomId }) {
               fontSize: '16px'
             }}
           >
-            {hasWinningPattern ? '🎉 ¡Grité Lotería!' : 'Reclamar Victoria'}
+            {hasWinningPattern ? '🎉 ¡Gritar loteria!' : 'Reclamar Victoria'}
           </button>
         </div>
 
         {hasWinningPattern && !winner && (
           <p style={{ color: '#4CAF50', fontWeight: 'bold', marginTop: '10px' }}>
-            ✅ ¡Tienes un patrón ganador! Puedes reclamar victoria
+            ¡Tienes un patrón ganador! Puedes reclamar victoria
           </p>
         )}
       </div>
 
-      <div style={{ 
-        display: 'grid', 
-        gridTemplateColumns: 'repeat(4, 1fr)', 
-        gap: '15px', 
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(4, 1fr)',
+        gap: '15px',
         margin: '20px auto',
         maxWidth: '600px'
       }}>
         {board.map((card, idx) => (
-          <Card 
-            key={idx} 
-            card={card} 
-            selected={markedCards.has(card)} 
+          <Card
+            key={idx}
+            card={card}
+            selected={markedCards.has(card)}
             onClick={() => !winner && toggleCard(card)} // No clickeable si hay ganador
             isCurrent={currentCard === card}
           />
         ))}
       </div>
 
-      <div style={{ 
-        marginTop: '20px', 
+      <div style={{
+        marginTop: '20px',
         padding: '10px',
         backgroundColor: '#e3f2fd',
         borderRadius: '4px'
@@ -227,9 +234,9 @@ export default function Board({ playerName, roomId }) {
         <p>4. <strong>El sistema validará automáticamente</strong> si ganaste</p>
         <p>5. <strong>¡Todos serán notificados cuando alguien gane!</strong></p>
       </div>
-      
-      <div style={{ 
-        marginTop: '15px', 
+
+      <div style={{
+        marginTop: '15px',
         padding: '10px',
         backgroundColor: '#e8f5e8',
         borderRadius: '4px',
