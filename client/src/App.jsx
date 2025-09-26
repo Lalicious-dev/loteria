@@ -1,29 +1,16 @@
-// client/src/App.jsx
-import React, { useState } from 'react';
-import Board from './components/Board';
+// src/App.js
+import React from 'react';
+import Board3D from './components/Board3D';
+import './App.css';
 
 function App() {
-  const [playerName, setPlayerName] = useState('');
-  const [roomId, setRoomId] = useState('');
-  const [joined, setJoined] = useState(false);
-
-  const handleJoin = () => {
-    if (!playerName || !roomId) return alert('Ingresa nombre y sala');
-    setJoined(true);
-  };
+  const urlParams = new URLSearchParams(window.location.search);
+  const playerName = urlParams.get('player') || 'Jugador';
+  const roomId = urlParams.get('room') || 'sala-general';
 
   return (
-    <div style={{ padding: '20px', fontFamily: 'Arial' }}>
-      {!joined ? (
-        <div>
-          <h1>Lotería Mexicana</h1>
-          <input placeholder="Nombre" value={playerName} onChange={e => setPlayerName(e.target.value)} />
-          <input placeholder="Sala" value={roomId} onChange={e => setRoomId(e.target.value)} />
-          <button onClick={handleJoin}>Entrar</button>
-        </div>
-      ) : (
-        <Board playerName={playerName} roomId={roomId} />
-      )}
+    <div className="App">
+      <Board3D playerName={playerName} roomId={roomId} />
     </div>
   );
 }
