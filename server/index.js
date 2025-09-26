@@ -136,19 +136,31 @@ io.on('connection', socket => {
     if (!player) return;
 
     const markedSet = new Set(markedCards);
+
+    // ✅ NUEVA VALIDACIÓN: Verificar que TODAS las cartas marcadas HAYAN SALIDO
+    const allMarkedCardsAreDrawn = Array.from(markedSet).every(card =>
+      room.drawn.has(card)  // ← room.drawn son las cartas que REALMENTE han salido
+    );
+
+    if (!allMarkedCardsAreDrawn) {
+      socket.emit('claimResult', {
+        win: false,
+        error: "❌ ¡Has marcado cartas que no han salido!"
+      });
+      return;
+    }
+
+    // ✅ Validar patrón ganador (solo con cartas que SÍ han salido)
     const result = checkWin(player.board, markedSet, room.patterns);
 
     socket.emit('claimResult', result);
 
     if (result.win) {
-      // ✅ NOTIFICAR A TODOS en la sala que este jugador ganó
       io.to(roomId).emit('someoneWon', {
         player: player.name,
         pattern: result.pattern,
         winningCards: result.pattern.map(idx => player.board[idx])
       });
-
-      io.to(roomId).emit('gameReset');
     }
   });
 
