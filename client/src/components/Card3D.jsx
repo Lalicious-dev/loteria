@@ -57,7 +57,7 @@ const CardModel = ({ card, isSelected, isCurrent }) => {
         <primitive 
           object={model.scene} 
           rotation={[0, 0, 0]}
-          scale={0.7} // Ajustar escala según necesidad
+          scale={0.72} // Ajustar escala según necesidad
         />
       </Center>
     </group>
@@ -73,7 +73,7 @@ const ModelLoading = () => (
 );
 
 // Componente principal de la carta MEJORADO
-const Card3D = ({ card, selected, onClick, isCurrent }) => {
+const Card3D = ({ card, selected, onClick, isCurrent, cardId, index }) => {
   const [hovered, setHovered] = useState(false);
 
   return (
@@ -82,8 +82,8 @@ const Card3D = ({ card, selected, onClick, isCurrent }) => {
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
-        backgroundColor: selected ? '#ffe0b2' : isCurrent ? '#79db9f9d' : '#79db9f9d',
-        border: isCurrent ? '10px solid #ff9800' : selected ? '10px solid #ff9800' : '9px solid #008f64ff',
+        backgroundColor: selected ? '#ffe0b2' : isCurrent ? '#79db9f9d' : '#ffd900ff',
+        border: isCurrent ? '10px solid #ff9800' : selected ? '10px solid #ff9800' : '9px solid #494949ff',
         borderRadius: '10px',
         padding: '1px', // Reducir padding para dar más espacio al 3D
         textAlign: 'center',
@@ -93,12 +93,13 @@ const Card3D = ({ card, selected, onClick, isCurrent }) => {
         position: 'relative',
         transition: 'all 0.3s ease',
         transform: hovered ? 'scale(1.05)' : 'scale(1)',
-        overflow: 'hidden'
+        overflow: 'hidden',
+        boxSizing: 'border-box'
       }}
     >
       {/* Canvas 3D integrado - CONFIGURACIÓN MEJORADA */}
       <div style={{ 
-        height: '100px', // Más altura para el área 3D
+        height: '80px', // Más altura para el área 3D
         width: '100%', 
         marginBottom: '9px' 
       }}>

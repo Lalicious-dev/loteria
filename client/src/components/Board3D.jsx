@@ -1,4 +1,4 @@
-// src/components/Board3D.jsx - CORREGIDO
+// src/components/Board3D.jsx - VERSIÓN COMPACTA
 import React, { useEffect, useState, useRef } from 'react';
 import io from 'socket.io-client';
 import Card3D from './Card3D';
@@ -19,12 +19,11 @@ export default function Board3D() {
   const [gameStarted, setGameStarted] = useState(false);
 
   const boardRef = useRef(board);
-  const markedCardsRef = useRef(markedCards); // ✅ AGREGAR ESTA LÍNEA
-  
-  boardRef.current = board;
-  markedCardsRef.current = markedCards; // ✅ AGREGAR ESTA LÍNEA
+  const markedCardsRef = useRef(markedCards);
 
-  // Función para unirse al juego
+  boardRef.current = board;
+  markedCardsRef.current = markedCards;
+
   const handleJoin = (name, room) => {
     setPlayerName(name);
     setRoomId(room);
@@ -45,7 +44,6 @@ export default function Board3D() {
       const winPatterns = generateWinPatterns(rows, cols);
       setPatterns(winPatterns);
 
-      // Precargar sonidos
       serverBoard.forEach(card => {
         audioManager.preloadCardSound(card);
       });
@@ -56,7 +54,6 @@ export default function Board3D() {
       audioManager.playCardSound(card);
     };
 
-    // ✅ AGREGAR handleNoMoreCards QUE FALTABA
     const handleNoMoreCards = () => {
       alert('¡Se terminaron las cartas!');
     };
@@ -81,7 +78,7 @@ export default function Board3D() {
 
     socket.on('board', handleBoard);
     socket.on('cardDrawn', handleCardDrawn);
-    socket.on('noMoreCards', handleNoMoreCards); // ✅ AHORA SÍ EXISTE
+    socket.on('noMoreCards', handleNoMoreCards);
     socket.on('someoneWon', handleSomeoneWon);
     socket.on('claimResult', handleClaimResult);
 
@@ -123,7 +120,6 @@ export default function Board3D() {
   };
 
   const handleClaim = () => {
-    // ✅ CORREGIDO: usar markedCardsRef.current que ahora sí existe
     socket.emit('claimWin', { roomId, markedCards: Array.from(markedCardsRef.current) });
   };
 
@@ -146,43 +142,57 @@ export default function Board3D() {
   }
 
   return (
-    <div style={{ padding: '20px', fontFamily: 'Arial, sans-serif' }}>
-      <h2>Jugador: {playerName}</h2>
-      <h3>Sala: {roomId}</h3>
+    <div style={containerStyle}>
+      {/* ✅ ENCABEZADO COMPACTO */}
+      <div style={headerStyle}>
+        <div style={playerInfoStyle}>
+          <span style={playerNameStyle}>👤 {playerName}</span>
+          <span style={roomIdStyle}>🚪 {roomId}</span>
+        </div>
 
+        <div style={currentCardStyle}>
+          {currentCard ? `🎴 ${currentCard}` : '⏳ Esperando carta...'}
+        </div>
+      </div>
+
+      {/* ✅ NOTIFICACIÓN DE GANADOR COMPACTA */}
       {winner && (
         <div style={winnerStyle(winner === playerName)}>
-          {winner === playerName ? '🎉 ¡ERES EL GANADOR! 🎉' : `🎉 ${winner} GANÓ LA PARTIDA 🎉`}
+          {winner === playerName ? '🎉 ¡GANASTE!' : `🏆 ${winner} ganó`}
         </div>
       )}
 
+      {/* ✅ PANEL DE CONTROL COMPACTO */}
       <div style={controlPanelStyle}>
-        <h3 style={{ color: currentCard ? '#4CAF50' : '#666' }}>
-          {currentCard ? `Carta cantada: "${currentCard}"` : 'Presiona "Cantar Carta"'}
-        </h3>
-
         <div style={buttonContainerStyle}>
-          <button onClick={handleDraw} disabled={winner} style={buttonStyle(winner ? '#ccc' : '#4CAF50')}>
-            Cantar Carta
+          <button
+            onClick={handleDraw}
+            disabled={winner}
+            style={buttonStyle(winner ? '#ccc' : '#4CAF50')}
+          >
+            🎴 Cantar Carta
           </button>
-          <button onClick={handleClaim} disabled={markedCards.size === 0 || winner} 
+          <button
+            onClick={handleClaim}
+            disabled={markedCards.size === 0 || winner}
             style={buttonStyle(
-              winner ? '#ccc' : 
-              hasWinningPattern ? '#ff9800' : 
-              markedCards.size === 0 ? '#ccc' : '#f44336'
-            )}>
-            {hasWinningPattern ? '🎉 ¡Gritar loteria!' : 'Reclamar Victoria'}
+              winner ? '#ccc' :
+                hasWinningPattern ? '#ff9800' :
+                  markedCards.size === 0 ? '#ccc' : '#f44336'
+            )}
+          >
+            {hasWinningPattern ? '🎉 ¡Lotería!' : '⚡ Reclamar'}
           </button>
         </div>
 
+        {/* ✅ INDICADOR DE PATRÓN COMPACTO */}
         {hasWinningPattern && !winner && (
-          <p style={{ color: '#4CAF50', fontWeight: 'bold', marginTop: '10px' }}>
-            ✅ ¡Tienes un patrón ganador! Puedes reclamar victoria
-          </p>
+          <div style={patternIndicatorStyle}>
+            ✅ Tienes un patrón ganador
+          </div>
         )}
       </div>
 
-      {/* Grid de cartas 3D */}
       <div style={gridStyle}>
         {board.map((card, idx) => (
           <Card3D
@@ -195,39 +205,89 @@ export default function Board3D() {
         ))}
       </div>
 
-      {/* Información adicional */}
-      <div style={instructionsStyle}>
-        <h4>🎯 Instrucciones:</h4>
-        <p>1. Presiona "Cantar Carta" para revelar una carta</p>
-        <p>2. Marca las casillas que coincidan con las cartas cantadas</p>
-        <p>3. Cuando completes un patrón, presiona "¡Gritar loteria!"</p>
-      </div>
-      
-      <div style={statsStyle}>
-        <p>📍 <strong>Cartas marcadas:</strong> {markedCards.size} / 16</p>
-        <p>🎯 <strong>Patrón válido:</strong> {hasWinningPattern ? '✅ Sí' : '❌ No'}</p>
-        {winner && <p>🏆 <strong>Ganador:</strong> {winner}</p>}
-      </div>
+      <div style={essentialInfoStyle}>
+      <span>📍 Marcadas: {markedCards.size}/16</span>
+      {hasWinningPattern && <span style={{color: '#4CAF50', marginLeft: '10px'}}>✅ Patrón válido</span>}
+    </div>
+
+
     </div>
   );
 }
+const essentialInfoStyle = {
+  marginTop: '15px',
+  padding: '8px',
+  backgroundColor: '#202020ff',
+  borderRadius: '6px',
+  textAlign: 'center',
+  fontSize: '14px',
+  fontWeight: 'bold'
+};
+// ✅ ESTILOS COMPACTOS
+const containerStyle = {
+  padding: '10px', // ✅ Menos padding general
+  fontFamily: 'Arial, sans-serif',
+  maxWidth: '800px',
+  margin: '0 auto',
+  background: 'white',
+  borderRadius: '10px',
+  minHeight: '100vh'
+};
 
-// Estilos
+const headerStyle = {
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  marginBottom: '15px',
+  padding: '10px',
+  backgroundColor: 'rgba(0, 0, 0, 0.95)',
+  borderRadius: '8px',
+  flexWrap: 'wrap',
+  gap: '10px'
+};
+
+const playerInfoStyle = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '5px'
+};
+
+const playerNameStyle = {
+  fontWeight: 'bold',
+  fontSize: '14px',
+  color: '#ffffffff'
+};
+
+const roomIdStyle = {
+  fontSize: '12px',
+  color: '#ffffffff'
+};
+
+const currentCardStyle = {
+  fontSize: '16px',
+  fontWeight: 'bold',
+  color: '#ffffffff',
+  textAlign: 'center',
+  flex: 1,
+  minWidth: '200px'
+};
+
 const winnerStyle = (isPlayer) => ({
   backgroundColor: isPlayer ? '#4CAF50' : '#ff9800',
   color: 'white',
-  padding: '15px',
-  borderRadius: '8px',
-  marginBottom: '20px',
+  padding: '10px',
+  borderRadius: '6px',
+  marginBottom: '15px',
   textAlign: 'center',
-  fontSize: '18px'
+  fontSize: '16px',
+  fontWeight: 'bold'
 });
 
 const controlPanelStyle = {
-  backgroundColor: '#000000ff',
-  padding: '15px',
+  backgroundColor: 'rgba(255, 255, 255, 0.95)',
+  padding: '12px',
   borderRadius: '8px',
-  marginBottom: '20px',
+  marginBottom: '15px',
   textAlign: 'center'
 };
 
@@ -235,38 +295,32 @@ const buttonContainerStyle = {
   display: 'flex',
   justifyContent: 'center',
   gap: '10px',
-  marginTop: '10px'
+  flexWrap: 'wrap'
 };
 
 const buttonStyle = (backgroundColor) => ({
-  padding: '10px 20px',
+  padding: '8px 16px',
   backgroundColor: backgroundColor,
   color: 'white',
   border: 'none',
-  borderRadius: '4px',
+  borderRadius: '6px',
   cursor: 'pointer',
-  fontSize: '16px'
+  fontSize: '14px',
+  fontWeight: 'bold',
+  minWidth: '140px'
 });
+
+const patternIndicatorStyle = {
+  color: '#4CAF50',
+  fontWeight: 'bold',
+  fontSize: '14px',
+  marginTop: '8px'
+};
 
 const gridStyle = {
   display: 'grid',
   gridTemplateColumns: 'repeat(4, 1fr)',
-  gap: '10px 30px',
-  margin: '20px auto',
-  maxWidth: '600px'
-};
-
-const instructionsStyle = {
-  marginTop: '20px',
-  padding: '10px',
-  backgroundColor: '#e3f2fd',
-  borderRadius: '4px'
-};
-
-const statsStyle = {
-  marginTop: '15px',
-  padding: '10px',
-  backgroundColor: '#e8f5e8',
-  borderRadius: '4px',
-  textAlign: 'center'
+  gap: '9px 6px', // ✅ Un poco más de espacio horizontal
+  margin: '0 auto',
+  maxWidth: '620px', // ✅ Aumenta ligeramente si es necesario
 };
