@@ -224,7 +224,7 @@ const winnerStyle = (isPlayer) => ({
 });
 
 const controlPanelStyle = {
-  backgroundColor: '#f0f0f0',
+  backgroundColor: '#000000ff',
   padding: '15px',
   borderRadius: '8px',
   marginBottom: '20px',
@@ -251,7 +251,7 @@ const buttonStyle = (backgroundColor) => ({
 const gridStyle = {
   display: 'grid',
   gridTemplateColumns: 'repeat(4, 1fr)',
-  gap: '15px',
+  gap: '10px 30px',
   margin: '20px auto',
   maxWidth: '600px'
 };
