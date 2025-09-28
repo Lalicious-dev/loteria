@@ -5,8 +5,9 @@ import Card3D from './Card3D';
 import JoinScreen from './JoinScreen';
 import { audioManager } from '../utils/AudioManager';
 import { checkWin, generateEmptyDrawn } from '../utils/game';
-
+import { getCardInfo } from '../utils/loteriaNumbers';
 const socket = io('http://localhost:3000');
+
 
 export default function Board3D() {
   const [playerName, setPlayerName] = useState('');
@@ -29,11 +30,13 @@ export default function Board3D() {
     setRoomId(room);
     setGameStarted(true);
   };
+  
 
   useEffect(() => {
     if (!gameStarted) return;
 
     socket.emit('joinRoom', { roomId, playerName });
+     preloadCommonCardSounds(); 
 
     const handleBoard = ({ board: serverBoard, rows, cols }) => {
       setBoard(serverBoard);
@@ -143,7 +146,7 @@ export default function Board3D() {
 
   return (
     <div style={containerStyle}>
-      {/* ✅ ENCABEZADO COMPACTO */}
+      {/* ✅ ENCABEZADO COMPACTO MEJORADO */}
       <div style={headerStyle}>
         <div style={playerInfoStyle}>
           <span style={playerNameStyle}>👤 {playerName}</span>
@@ -151,10 +154,17 @@ export default function Board3D() {
         </div>
 
         <div style={currentCardStyle}>
-          {currentCard ? `🎴 ${currentCard}` : '⏳ Esperando carta...'}
+          {currentCard ? (
+            <div style={currentCardContentStyle}>
+              <div style={currentCardMainStyle}>
+                🎴 {getCardInfo(currentCard).phonetic}
+              </div>
+            </div>
+          ) : (
+            '⏳ Esperando carta...'
+          )}
         </div>
       </div>
-
       {/* ✅ NOTIFICACIÓN DE GANADOR COMPACTA */}
       {winner && (
         <div style={winnerStyle(winner === playerName)}>
@@ -206,9 +216,9 @@ export default function Board3D() {
       </div>
 
       <div style={essentialInfoStyle}>
-      <span>📍 Marcadas: {markedCards.size}/16</span>
-      {hasWinningPattern && <span style={{color: '#4CAF50', marginLeft: '10px'}}>✅ Patrón válido</span>}
-    </div>
+        <span>📍 Marcadas: {markedCards.size}/16</span>
+        {hasWinningPattern && <span style={{ color: '#4CAF50', marginLeft: '10px' }}>✅ Patrón válido</span>}
+      </div>
 
 
     </div>
@@ -217,7 +227,7 @@ export default function Board3D() {
 const essentialInfoStyle = {
   marginTop: '15px',
   padding: '8px',
-  backgroundColor: '#202020ff',
+  backgroundColor: '#fdfdfdff',
   borderRadius: '6px',
   textAlign: 'center',
   fontSize: '14px',
@@ -229,7 +239,7 @@ const containerStyle = {
   fontFamily: 'Arial, sans-serif',
   maxWidth: '800px',
   margin: '0 auto',
-  background: 'white',
+  background: '#ffffff49',
   borderRadius: '10px',
   minHeight: '100vh'
 };
@@ -320,7 +330,46 @@ const patternIndicatorStyle = {
 const gridStyle = {
   display: 'grid',
   gridTemplateColumns: 'repeat(4, 1fr)',
-  gap: '9px 6px', // ✅ Un poco más de espacio horizontal
+  gap: '9px 25px', // ✅ Un poco más de espacio horizontal
   margin: '0 auto',
   maxWidth: '620px', // ✅ Aumenta ligeramente si es necesario
 };
+
+
+const currentCardContentStyle = {
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  gap: '2px'
+};
+
+const currentCardMainStyle = {
+  fontSize: '16px',
+  fontWeight: 'bold'
+};
+
+const phoneticStyle = {
+  fontSize: '12px',
+  fontStyle: 'italic',
+  color: '#e0e0e0',
+  fontFamily: 'Arial, sans-serif'
+};
+const preloadCommonCardSounds = () => {
+    const commonCards = [
+      'The Hummingbird', 'The Little Devil', 'The Lady', 'The Catrin', 'The Umbrella',
+      'The Avocado', 'The Ladder', 'The Bottle', 'The Barrel', 'The Tree',
+      'The Melon', 'The Otter', 'The Coin', 'The Arduino', 'The Pear',
+      'The Flag', 'The Big Mandolin', 'The Cello', 'The Panther', 'The Hen',
+      'The Hand', 'The Boot', 'The Moon', 'The LED', 'The Witch',
+      'The Black Man', 'The Heart', 'The Watermelon', 'The Drum', 'The Shrimp',
+      'The Arrows', 'The Headphones', 'The Spider', 'The Soldier', 'The Star',
+      'The Saucepan', 'The World', 'The Apache', 'The Nopal', 'The Snake',
+      'The Rose', 'The Skull', 'The Bell', 'The Michelada', 'The Deer',
+      'The Sun', 'The Crown', 'The Chalupa', 'The Pine Tree', 'The Fish',
+      'The Tamal', 'The Flowerpot', 'The Talachas', 'The Frog'
+    ];
+    
+    commonCards.forEach(card => {
+      audioManager.preloadCardSound(card);
+    });
+  };
