@@ -1,13 +1,13 @@
-// src/components/Board3D.jsx - VERSIÓN COMPACTA
-import React, { useEffect, useState, useRef } from 'react';
+// src/components/Board3D.jsx - VERSIÓN OPTIMIZADA
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import io from 'socket.io-client';
 import Card3D from './Card3D';
 import JoinScreen from './JoinScreen';
 import { audioManager } from '../utils/AudioManager';
 import { checkWin, generateEmptyDrawn } from '../utils/game';
 import { getCardInfo } from '../utils/loteriaNumbers';
-const socket = io('http://localhost:3000');
 
+const socket = io('http://localhost:3000');
 
 export default function Board3D() {
   const [playerName, setPlayerName] = useState('');
@@ -25,18 +25,68 @@ export default function Board3D() {
   boardRef.current = board;
   markedCardsRef.current = markedCards;
 
-  const handleJoin = (name, room) => {
+  const handleJoin = useCallback((name, room) => {
     setPlayerName(name);
     setRoomId(room);
     setGameStarted(true);
-  };
-  
+  }, []);
+
+  const generateWinPatterns = useCallback((rows, cols) => {
+    const patterns = [];
+    
+    // Filas
+    for (let r = 0; r < rows; r++) {
+      const row = [];
+      for (let c = 0; c < cols; c++) row.push(r * cols + c);
+      patterns.push(row);
+    }
+    
+    // Columnas
+    for (let c = 0; c < cols; c++) {
+      const col = [];
+      for (let r = 0; r < rows; r++) col.push(r * cols + c);
+      patterns.push(col);
+    }
+    
+    // Diagonales (solo si es cuadrada)
+    if (rows === cols) {
+      const diag1 = [];
+      const diag2 = [];
+      for (let i = 0; i < rows; i++) {
+        diag1.push(i * cols + i);
+        diag2.push(i * cols + (cols - 1 - i));
+      }
+      patterns.push(diag1, diag2);
+    }
+    
+    return patterns;
+  }, []);
+
+  const preloadCommonCardSounds = useCallback(() => {
+    const commonCards = [
+      'The Hummingbird', 'The Little Devil', 'The Lady', 'The Catrin', 'The Umbrella',
+      'The Avocado', 'The Ladder', 'The Bottle', 'The Barrel', 'The Tree',
+      'The Melon', 'The Otter', 'The Coin', 'The Arduino', 'The Pear',
+      'The Flag', 'The Big Mandolin', 'The Cello', 'The Panther', 'The Hen',
+      'The Hand', 'The Boot', 'The Moon', 'The LED', 'The Witch',
+      'The Black Man', 'The Heart', 'The Watermelon', 'The Drum', 'The Shrimp',
+      'The Arrows', 'The Headphones', 'The Spider', 'The Soldier', 'The Star',
+      'The Saucepan', 'The World', 'The Apache', 'The Nopal', 'The Snake',
+      'The Rose', 'The Skull', 'The Bell', 'The Michelada', 'The Deer',
+      'The Sun', 'The Crown', 'The Chalupa', 'The Pine Tree', 'The Fish',
+      'The Tamal', 'The Flowerpot', 'The Talachas', 'The Frog'
+    ];
+    
+    commonCards.forEach(card => {
+      audioManager.preloadCardSound(card);
+    });
+  }, []);
 
   useEffect(() => {
     if (!gameStarted) return;
 
     socket.emit('joinRoom', { roomId, playerName });
-     preloadCommonCardSounds(); 
+    preloadCommonCardSounds();
 
     const handleBoard = ({ board: serverBoard, rows, cols }) => {
       setBoard(serverBoard);
@@ -92,31 +142,7 @@ export default function Board3D() {
       socket.off('someoneWon', handleSomeoneWon);
       socket.off('claimResult', handleClaimResult);
     };
-  }, [gameStarted, roomId, playerName]);
-
-  const generateWinPatterns = (rows, cols) => {
-    const patterns = [];
-    for (let r = 0; r < rows; r++) {
-      const row = [];
-      for (let c = 0; c < cols; c++) row.push(r * cols + c);
-      patterns.push(row);
-    }
-    for (let c = 0; c < cols; c++) {
-      const col = [];
-      for (let r = 0; r < rows; r++) col.push(r * cols + c);
-      patterns.push(col);
-    }
-    if (rows === cols) {
-      const diag1 = [];
-      const diag2 = [];
-      for (let i = 0; i < rows; i++) {
-        diag1.push(i * cols + i);
-        diag2.push(i * cols + (cols - 1 - i));
-      }
-      patterns.push(diag1, diag2);
-    }
-    return patterns;
-  };
+  }, [gameStarted, roomId, playerName, generateWinPatterns, preloadCommonCardSounds]);
 
   const handleDraw = () => {
     socket.emit('drawCard', { roomId });
@@ -126,7 +152,9 @@ export default function Board3D() {
     socket.emit('claimWin', { roomId, markedCards: Array.from(markedCardsRef.current) });
   };
 
-  const toggleCard = (card) => {
+  const toggleCard = useCallback((card) => {
+    if (winner) return;
+    
     setMarkedCards(prev => {
       const newSet = new Set(prev);
       if (newSet.has(card)) {
@@ -136,7 +164,7 @@ export default function Board3D() {
       }
       return newSet;
     });
-  };
+  }, [winner]);
 
   const hasWinningPattern = checkWin(board, markedCards, patterns);
 
@@ -146,7 +174,7 @@ export default function Board3D() {
 
   return (
     <div style={containerStyle}>
-      {/* ✅ ENCABEZADO COMPACTO MEJORADO */}
+      {/* ENCABEZADO */}
       <div style={headerStyle}>
         <div style={playerInfoStyle}>
           <span style={playerNameStyle}>👤 {playerName}</span>
@@ -165,26 +193,27 @@ export default function Board3D() {
           )}
         </div>
       </div>
-      {/* ✅ NOTIFICACIÓN DE GANADOR COMPACTA */}
+
+      {/* NOTIFICACIÓN DE GANADOR */}
       {winner && (
         <div style={winnerStyle(winner === playerName)}>
           {winner === playerName ? '🎉 ¡GANASTE!' : `🏆 ${winner} ganó`}
         </div>
       )}
 
-      {/* ✅ PANEL DE CONTROL COMPACTO */}
+      {/* PANEL DE CONTROL */}
       <div style={controlPanelStyle}>
         <div style={buttonContainerStyle}>
           <button
             onClick={handleDraw}
-            disabled={winner}
+            disabled={!!winner}
             style={buttonStyle(winner ? '#ccc' : '#4CAF50')}
           >
             🎴 Cantar Carta
           </button>
           <button
             onClick={handleClaim}
-            disabled={markedCards.size === 0 || winner}
+            disabled={markedCards.size === 0 || !!winner}
             style={buttonStyle(
               winner ? '#ccc' :
                 hasWinningPattern ? '#ff9800' :
@@ -195,7 +224,7 @@ export default function Board3D() {
           </button>
         </div>
 
-        {/* ✅ INDICADOR DE PATRÓN COMPACTO */}
+        {/* INDICADOR DE PATRÓN */}
         {hasWinningPattern && !winner && (
           <div style={patternIndicatorStyle}>
             ✅ Tienes un patrón ganador
@@ -203,39 +232,31 @@ export default function Board3D() {
         )}
       </div>
 
+      {/* TABLERO DE CARTAS */}
       <div style={gridStyle}>
         {board.map((card, idx) => (
           <Card3D
-            key={idx}
+            key={`${card}-${idx}`}
             card={card}
             selected={markedCards.has(card)}
-            onClick={() => !winner && toggleCard(card)}
+            onClick={() => toggleCard(card)}
             isCurrent={currentCard === card}
           />
         ))}
       </div>
 
+      {/* INFORMACIÓN ESENCIAL */}
       <div style={essentialInfoStyle}>
         <span>📍 Marcadas: {markedCards.size}/16</span>
         {hasWinningPattern && <span style={{ color: '#4CAF50', marginLeft: '10px' }}>✅ Patrón válido</span>}
       </div>
-
-
     </div>
   );
 }
-const essentialInfoStyle = {
-  marginTop: '15px',
-  padding: '8px',
-  backgroundColor: '#fdfdfdff',
-  borderRadius: '6px',
-  textAlign: 'center',
-  fontSize: '14px',
-  fontWeight: 'bold'
-};
-// ✅ ESTILOS COMPACTOS
+
+// Estilos (mantener igual)
 const containerStyle = {
-  padding: '10px', // ✅ Menos padding general
+  padding: '10px',
   fontFamily: 'Arial, sans-serif',
   maxWidth: '800px',
   margin: '0 auto',
@@ -280,6 +301,18 @@ const currentCardStyle = {
   textAlign: 'center',
   flex: 1,
   minWidth: '200px'
+};
+
+const currentCardContentStyle = {
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  gap: '2px'
+};
+
+const currentCardMainStyle = {
+  fontSize: '16px',
+  fontWeight: 'bold'
 };
 
 const winnerStyle = (isPlayer) => ({
@@ -330,46 +363,17 @@ const patternIndicatorStyle = {
 const gridStyle = {
   display: 'grid',
   gridTemplateColumns: 'repeat(4, 1fr)',
-  gap: '9px 25px', // ✅ Un poco más de espacio horizontal
+  gap: '9px 25px',
   margin: '0 auto',
-  maxWidth: '620px', // ✅ Aumenta ligeramente si es necesario
+  maxWidth: '620px'
 };
 
-
-const currentCardContentStyle = {
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-  gap: '2px'
-};
-
-const currentCardMainStyle = {
-  fontSize: '16px',
+const essentialInfoStyle = {
+  marginTop: '15px',
+  padding: '8px',
+  backgroundColor: '#fdfdfdff',
+  borderRadius: '6px',
+  textAlign: 'center',
+  fontSize: '14px',
   fontWeight: 'bold'
 };
-
-const phoneticStyle = {
-  fontSize: '12px',
-  fontStyle: 'italic',
-  color: '#e0e0e0',
-  fontFamily: 'Arial, sans-serif'
-};
-const preloadCommonCardSounds = () => {
-    const commonCards = [
-      'The Hummingbird', 'The Little Devil', 'The Lady', 'The Catrin', 'The Umbrella',
-      'The Avocado', 'The Ladder', 'The Bottle', 'The Barrel', 'The Tree',
-      'The Melon', 'The Otter', 'The Coin', 'The Arduino', 'The Pear',
-      'The Flag', 'The Big Mandolin', 'The Cello', 'The Panther', 'The Hen',
-      'The Hand', 'The Boot', 'The Moon', 'The LED', 'The Witch',
-      'The Black Man', 'The Heart', 'The Watermelon', 'The Drum', 'The Shrimp',
-      'The Arrows', 'The Headphones', 'The Spider', 'The Soldier', 'The Star',
-      'The Saucepan', 'The World', 'The Apache', 'The Nopal', 'The Snake',
-      'The Rose', 'The Skull', 'The Bell', 'The Michelada', 'The Deer',
-      'The Sun', 'The Crown', 'The Chalupa', 'The Pine Tree', 'The Fish',
-      'The Tamal', 'The Flowerpot', 'The Talachas', 'The Frog'
-    ];
-    
-    commonCards.forEach(card => {
-      audioManager.preloadCardSound(card);
-    });
-  };
