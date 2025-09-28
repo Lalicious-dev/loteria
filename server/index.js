@@ -92,33 +92,67 @@ function checkWin(playerBoard, drawnSet, patterns) {
 
 // ======== ROOMS ========
 const rooms = {}; // rooms[roomId] = { deckShuffled, drawn: Set(), players: {}, patterns }
+const roomPlayers = new Map(); // 👈 NUEVO: Para trackear jugadores por nombre
 
 // ======== SOCKET.IO ========
 io.on('connection', socket => {
   console.log('Nueva conexión:', socket.id);
 
-  socket.on('joinRoom', ({ roomId, playerName }) => {
+  socket.on('joinRoom', ({ roomId, playerName, isCantador }) => { // 👈 AGREGAR isCantador
     socket.join(roomId);
 
+    // 👇 NUEVO: Actualizar lista de jugadores por nombre
+    if (!roomPlayers.has(roomId)) {
+      roomPlayers.set(roomId, []);
+    }
+    
+    const playersInRoom = roomPlayers.get(roomId);
+    if (!playersInRoom.includes(playerName)) {
+      playersInRoom.push(playerName);
+    }
+
+    // 👇 NUEVO: Emitir actualización de jugadores a TODA la sala
+    io.to(roomId).emit('playersUpdate', { players: playersInRoom });
+
+    console.log(`👥 ${playerName} se unió a la sala ${roomId}. Jugadores: ${playersInRoom.length}`);
+
+    // 👇 CÓDIGO EXISTENTE (mantener igual)
     if (!rooms[roomId]) {
       rooms[roomId] = {
         deckShuffled: shuffle(rawDeck.map(c => c.name)),
         drawn: new Set(),
         players: {},
-        patterns: generateWinPatterns(4, 4)
+        patterns: generateWinPatterns(4, 4),
+        cantador: isCantador ? playerName : null // 👈 NUEVO: Guardar quién es el cantador
       };
     }
 
     const room = rooms[roomId];
+    
+    // 👇 NUEVO: Si es el primer jugador y es cantador, asignarlo como cantador
+    if (isCantador && !room.cantador) {
+      room.cantador = playerName;
+    }
+
     const board = generateBoard(rawDeck, 4, 4);
     room.players[socket.id] = { name: playerName, board };
 
     socket.emit('board', { board, rows: 4, cols: 4 });
+
+    // 👇 NUEVO: Emitir quién es el cantador actual
+    socket.emit('cantadorUpdate', { cantador: room.cantador });
   });
 
   socket.on('drawCard', ({ roomId }) => {
     const room = rooms[roomId];
     if (!room) return;
+
+    // 👇 NUEVO: Verificar que solo el cantador puede cantar cartas
+    const player = room.players[socket.id];
+    if (!player || player.name !== room.cantador) {
+      socket.emit('error', { message: 'Solo el cantador puede cantar cartas' });
+      return;
+    }
 
     const card = drawNext(room.deckShuffled, room.drawn);
     if (card) {
@@ -137,9 +171,9 @@ io.on('connection', socket => {
 
     const markedSet = new Set(markedCards);
 
-    // ✅ NUEVA VALIDACIÓN: Verificar que TODAS las cartas marcadas HAYAN SALIDO
+    // ✅ Validación: Verificar que TODAS las cartas marcadas HAYAN SALIDO
     const allMarkedCardsAreDrawn = Array.from(markedSet).every(card =>
-      room.drawn.has(card)  // ← room.drawn son las cartas que REALMENTE han salido
+      room.drawn.has(card)
     );
 
     if (!allMarkedCardsAreDrawn) {
@@ -150,7 +184,7 @@ io.on('connection', socket => {
       return;
     }
 
-    // ✅ Validar patrón ganador (solo con cartas que SÍ han salido)
+    // ✅ Validar patrón ganador
     const result = checkWin(player.board, markedSet, room.patterns);
 
     socket.emit('claimResult', result);
@@ -164,14 +198,32 @@ io.on('connection', socket => {
     }
   });
 
+  // 👇 NUEVO: Manejar desconexión de jugadores
   socket.on('disconnect', () => {
     console.log('Desconexión:', socket.id);
+    
+    // Eliminar jugador de roomPlayers (por nombre)
+    for (const [roomId, players] of roomPlayers.entries()) {
+      const player = rooms[roomId]?.players[socket.id];
+      if (player) {
+        const updatedPlayers = players.filter(name => name !== player.name);
+        roomPlayers.set(roomId, updatedPlayers);
+        
+        // Notificar a los demás jugadores
+        socket.to(roomId).emit('playersUpdate', { players: updatedPlayers });
+        
+        console.log(`👋 ${player.name} salió de la sala ${roomId}. Jugadores restantes: ${updatedPlayers.length}`);
+      }
+    }
+
+    // 👇 CÓDIGO EXISTENTE (mantener)
     // eliminar jugador de todas las salas
     for (const roomId in rooms) {
       delete rooms[roomId].players[socket.id];
       // opcional: eliminar room si ya no hay jugadores
       if (Object.keys(rooms[roomId].players).length === 0) {
         delete rooms[roomId];
+        roomPlayers.delete(roomId); // 👈 NUEVO: Limpiar también roomPlayers
       }
     }
   });
