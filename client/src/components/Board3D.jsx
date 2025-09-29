@@ -1,4 +1,4 @@
-// src/components/Board3D.jsx - VERSIÓN CORREGIDA
+// src/components/Board3D.jsx - VERSIÓN COMPACTA
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import io from 'socket.io-client';
 import Card3D from './Card3D';
@@ -6,8 +6,24 @@ import JoinScreen from './JoinScreen';
 import { audioManager } from '../utils/AudioManager';
 import { checkWin, generateEmptyDrawn } from '../utils/game';
 import { getCardInfo } from '../utils/loteriaNumbers';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import {
+  faMicrophone,
+  faUser,
+  faDoorOpen,
+  faCrown,
+  faUsers,
+  faTrophy,
+  faGamepad,
+  faClock,
+  faCheckCircle,
+  faBell,
+  faSpinner,
+  faMapMarkerAlt,
+  faStar
+} from '@fortawesome/free-solid-svg-icons';
 
-const socket = io('http://localhost:3000');
+const socket = io('http://192.168.0.101:3000');
 
 export default function Board3D() {
   const [playerName, setPlayerName] = useState('');
@@ -20,6 +36,7 @@ export default function Board3D() {
   const [winner, setWinner] = useState(null);
   const [gameStarted, setGameStarted] = useState(false);
   const [players, setPlayers] = useState([]);
+  const [markerType, setMarkerType] = useState('bean');
 
   const boardRef = useRef(board);
   const markedCardsRef = useRef(markedCards);
@@ -77,7 +94,7 @@ export default function Board3D() {
       'The Tamal', 'The Flowerpot', 'The Talachas', 'The Frog'
     ];
 
-    console.log('🔊 Precargando sonidos para', allCards.length, 'cartas...');
+    console.log('🔊 Preloading sounds for', allCards.length, 'cards...');
 
     allCards.forEach(card => {
       audioManager.preloadCardSound(card);
@@ -88,16 +105,14 @@ export default function Board3D() {
   }, []);
 
   useEffect(() => {
+
     if (!gameStarted) return;
 
-    // EMITIR evento de unión al servidor (no escucharlo aquí)
     socket.emit('joinRoom', { roomId, playerName, isCantador });
-
-    // PRECARGAR TODOS LOS SONIDOS AL INICIAR
     preloadAllCardSounds();
 
     const handleBoard = ({ board: serverBoard, rows, cols }) => {
-      console.log('🃏 Tablero recibido:', serverBoard);
+      console.log('🃏 Board received:', serverBoard);
       setBoard(serverBoard);
       setMarkedCards(generateEmptyDrawn());
       setCurrentCard(null);
@@ -112,18 +127,18 @@ export default function Board3D() {
     };
 
     const handleCardDrawn = ({ card }) => {
-      console.log('🎴 Carta cantada:', card);
+      console.log('🎴 Card called:', card);
       setCurrentCard(card);
       audioManager.playCardSound(card);
     };
 
     const handleNoMoreCards = () => {
-      alert('¡Se terminaron las cartas!');
+      alert('No more cards left!');
       audioManager.playCardSound('error');
     };
 
     const handleSomeoneWon = ({ player }) => {
-      console.log('🏆 Ganador:', player);
+      console.log('🏆 Winner:', player);
       setWinner(player);
       audioManager.playVictory();
       setMarkedCards(generateEmptyDrawn());
@@ -135,7 +150,7 @@ export default function Board3D() {
         audioManager.playVictory();
         setWinner(playerName);
       } else {
-        alert(result.error || '❌ No tienes un patrón ganador válido.');
+        alert(result.error || '❌ You do not have a valid winning pattern.');
         audioManager.playError();
       }
       setMarkedCards(generateEmptyDrawn());
@@ -143,15 +158,15 @@ export default function Board3D() {
     };
 
     const handlePlayersUpdate = ({ players: connectedPlayers }) => {
-      console.log('👥 Jugadores actualizados:', connectedPlayers);
+      console.log('👥 Players updated:', connectedPlayers);
       setPlayers(connectedPlayers);
     };
+
     const handleCantadorUpdate = ({ cantador }) => {
-      console.log('🎤 Cantador actualizado:', cantador);
+      console.log('🎤 Caller updated:', cantador);
       setIsCantador(cantador === playerName);
     };
 
-    // SOLO ESCUCHAR eventos del servidor (no emitir joinRoom aquí)
     socket.on('board', handleBoard);
     socket.on('cardDrawn', handleCardDrawn);
     socket.on('noMoreCards', handleNoMoreCards);
@@ -161,7 +176,6 @@ export default function Board3D() {
     socket.on('cantadorUpdate', handleCantadorUpdate);
 
     return () => {
-      // Limpiar event listeners
       socket.off('board', handleBoard);
       socket.off('cardDrawn', handleCardDrawn);
       socket.off('noMoreCards', handleNoMoreCards);
@@ -203,30 +217,28 @@ export default function Board3D() {
 
   return (
     <div style={containerStyle}>
-      {/* ENCABEZADO */}
+      {/* COMPACT HEADER */}
       <div style={headerStyle}>
         <div style={playerInfoStyle}>
           <div style={playerBadgeStyle}>
             <span style={playerNameStyle}>
-              {isCantador ? '🎤' : '🎴'} {playerName}
+              <FontAwesomeIcon icon={isCantador ? faMicrophone : faUser} style={{ marginRight: '6px', fontSize: '14px' }} />
+              {playerName}
             </span>
             <span style={roleBadgeStyle(isCantador)}>
-              {isCantador ? 'Cantador' : 'Jugador'}
+              {isCantador ? 'Caller' : 'Player'}
+            </span>
+            <span style={roomIdStyle}>
+              <FontAwesomeIcon icon={faDoorOpen} style={{ marginRight: '4px', fontSize: '12px' }} />
+              {roomId}
             </span>
           </div>
-          <span style={roomIdStyle}>🚪 Sala: {roomId}</span>
 
-          {/* MOSTRAR CANTIDAD DE JUGADORES CONECTADOS */}
           <div style={playersInfoStyle}>
             <span style={playersCountStyle}>
-              👥 {players.length} jugador{players.length !== 1 ? 'es' : ''} conectado{players.length !== 1 ? 's' : ''}
+              <FontAwesomeIcon icon={faUsers} style={{ marginRight: '4px', fontSize: '12px' }} />
+              {players.length}
             </span>
-            {players.length > 0 && (
-              <span style={playersListPreviewStyle}>
-                {players.slice(0, 3).join(', ')}
-                {players.length > 3 && ` y ${players.length - 3} más...`}
-              </span>
-            )}
           </div>
         </div>
 
@@ -234,45 +246,47 @@ export default function Board3D() {
           {currentCard ? (
             <div style={currentCardContentStyle}>
               <div style={currentCardMainStyle}>
-                🎴 {getCardInfo(currentCard).phonetic}
+                <FontAwesomeIcon icon={faGamepad} style={{ marginRight: '6px', fontSize: '14px' }} />
+                {getCardInfo(currentCard).phonetic}
               </div>
               <div style={cardNameStyle}>{currentCard}</div>
             </div>
           ) : (
             <div style={waitingStyle}>
-              {isCantador ? '🎤 Listo para cantar' : '⏳ Esperando al cantador'}
+              <FontAwesomeIcon icon={isCantador ? faMicrophone : faClock} style={{ marginRight: '6px', fontSize: '14px' }} />
+              {isCantador ? 'Ready' : 'Waiting...'}
             </div>
           )}
         </div>
       </div>
 
-      {/* LISTA DE JUGADORES (SOLO PARA CANTADOR) */}
+      {/* PLAYERS LIST (ONLY FOR CALLER) - COMPACT */}
       {isCantador && players.length > 0 && (
         <div style={playersPanelStyle}>
           <div style={playersTitleStyle}>
-            👥 Jugadores en la sala ({players.length})
+            <FontAwesomeIcon icon={faUsers} style={{ marginRight: '6px', fontSize: '12px' }} />
+            Players ({players.length})
           </div>
           <div style={playersListStyle}>
             {players.map((player, index) => (
               <div key={index} style={playerItemStyle(player === playerName)}>
-                <span style={playerIconStyle}>
-                  {player === playerName ? '👑' : '🎴'}
-                </span>
-                {player} {player === playerName && '(Tú - Cantador)'}
+                <FontAwesomeIcon icon={player === playerName ? faCrown : faUser} style={{ fontSize: '12px', marginRight: '6px' }} />
+                {player} {player === playerName && '(You)'}
               </div>
             ))}
           </div>
         </div>
       )}
 
-      {/* NOTIFICACIÓN DE GANADOR */}
+      {/* WINNER NOTIFICATION - COMPACT */}
       {winner && (
         <div style={winnerStyle(winner === playerName)}>
-          {winner === playerName ? '🎉 ¡GANASTE!' : `🏆 ${winner} ganó`}
+          <FontAwesomeIcon icon={faTrophy} style={{ marginRight: '8px', fontSize: '16px' }} />
+          {winner === playerName ? 'YOU WIN!' : `${winner} won!`}
         </div>
       )}
 
-      {/* PANEL DE CONTROL */}
+      {/* COMPACT CONTROL PANEL */}
       <div style={controlPanelStyle}>
         {isCantador ? (
           <div style={cantadorPanelStyle}>
@@ -282,36 +296,74 @@ export default function Board3D() {
                 disabled={!!winner}
                 style={cantarButtonStyle}
               >
-                🎤 Cantar Carta
+                <FontAwesomeIcon icon={faMicrophone} style={{ marginRight: '6px', fontSize: '14px' }} />
+                Call
               </button>
               <button
                 onClick={handleClaim}
                 disabled={markedCards.size === 0 || !!winner}
                 style={reclamarButtonStyle(hasWinningPattern)}
               >
-                {hasWinningPattern ? '🎉 ¡Lotería!' : '⚡ Reclamar'}
+                <FontAwesomeIcon icon={hasWinningPattern ? faTrophy : faBell} style={{ marginRight: '6px', fontSize: '14px' }} />
+                {hasWinningPattern ? 'Lottery!' : 'Claim'}
               </button>
+              {/* Selector de marcadores en línea con los botones */}
+              <div style={markerSelectorStyle}>
+                <label style={markerLabelStyle}>
+                  <FontAwesomeIcon icon={faMapMarkerAlt} style={{ marginRight: '6px', fontSize: '14px' }} />
+                  Marker:
+                </label>
+                <select
+                  value={markerType}
+                  onChange={(e) => setMarkerType(e.target.value)}
+                  style={markerSelectStyle}
+                >
+                  <option value="bean">Bean</option>
+                  <option value="corn">Corn</option>
+                  <option value="token">Token</option>
+                </select>
+              </div>
             </div>
           </div>
         ) : (
           <div style={jugadorPanelStyle}>
-            <button
-              onClick={handleClaim}
-              disabled={markedCards.size === 0 || !!winner}
-              style={reclamarButtonStyle(hasWinningPattern)}
-            >
-              {hasWinningPattern ? '🎉 ¡Lotería!' : '⚡ Reclamar Victoria'}
-            </button>
+            <div style={buttonContainerStyle}>
+              <button
+                onClick={handleClaim}
+                disabled={markedCards.size === 0 || !!winner}
+                style={reclamarButtonStyle(hasWinningPattern)}
+              >
+                <FontAwesomeIcon icon={hasWinningPattern ? faTrophy : faBell} style={{ marginRight: '6px', fontSize: '14px' }} />
+                {hasWinningPattern ? 'Lottery!' : 'Claim'}
+              </button>
+              {/* Selector de marcadores en línea con el botón para jugadores */}
+              <div style={markerSelectorStyle}>
+                <label style={markerLabelStyle}>
+                  <FontAwesomeIcon icon={faMapMarkerAlt} style={{ marginRight: '6px', fontSize: '14px' }} />
+                  Marker:
+                </label>
+                <select
+                  value={markerType}
+                  onChange={(e) => setMarkerType(e.target.value)}
+                  style={markerSelectStyle}
+                >
+                  <option value="bean">Bean</option>
+                  <option value="corn">Corn</option>
+                  <option value="token">Token</option>
+                </select>
+              </div>
+            </div>
             {hasWinningPattern && !winner && (
               <div style={patternIndicatorStyle}>
-                ✅ Tienes un patrón ganador
+                <FontAwesomeIcon icon={faCheckCircle} style={{ marginRight: '6px', fontSize: '12px' }} />
+                Winning pattern
               </div>
             )}
           </div>
         )}
       </div>
 
-      {/* TABLERO DE CARTAS */}
+      {/* CARD BOARD */}
       <div style={gridStyle}>
         {board.length > 0 ? (
           board.map((card, idx) => (
@@ -321,178 +373,191 @@ export default function Board3D() {
               selected={markedCards.has(card)}
               onClick={() => toggleCard(card)}
               isCurrent={currentCard === card}
+              markerType={markerType}
             />
           ))
         ) : (
           <div style={loadingStyle}>
-            ⏳ Cargando tablero...
+            <FontAwesomeIcon icon={faSpinner} spin style={{ marginRight: '8px', fontSize: '16px' }} />
+            Loading...
           </div>
         )}
       </div>
 
-      {/* INFORMACIÓN DE JUEGO */}
+      {/* COMPACT GAME INFO */}
       <div style={gameInfoStyle}>
-        <span>📍 Marcadas: {markedCards.size}/16</span>
-        {hasWinningPattern && <span style={validPatternStyle}>✅ Patrón válido</span>}
+        <span>
+          <FontAwesomeIcon icon={faMapMarkerAlt} style={{ marginRight: '4px', fontSize: '12px' }} />
+          {markedCards.size}/16
+        </span>
+        {hasWinningPattern && (
+          <span style={validPatternStyle}>
+            <FontAwesomeIcon icon={faStar} style={{ marginRight: '4px', fontSize: '12px' }} />
+            Valid
+          </span>
+        )}
       </div>
     </div>
   );
 }
 
-// Estilos (mantener igual)
+// Compact Styles
 const containerStyle = {
-  padding: '15px',
+  padding: '10px',
   fontFamily: 'Arial, sans-serif',
   maxWidth: '800px',
   margin: '0 auto',
-  background: '#ffffff73',
-  borderRadius: '10px',
-  minHeight: '100vh'
+  background: 'linear-gradient(135deg, #ff1493 0%, #000000 100%)',
+  borderRadius: '15px',
+  minHeight: '100vh',
+  border: '2px solid #ff1493',
+  boxShadow: '0 8px 30px rgba(255, 20, 147, 0.5)'
 };
 
 const headerStyle = {
   display: 'flex',
   justifyContent: 'space-between',
   alignItems: 'center',
-  marginBottom: '20px',
-  padding: '15px',
-  backgroundColor: 'rgba(0, 0, 0, 0.9)',
-  borderRadius: '10px',
+  marginBottom: '15px',
+  padding: '12px',
+  backgroundColor: 'rgba(0, 0, 0, 0.8)',
+  borderRadius: '12px',
   flexWrap: 'wrap',
-  gap: '15px'
+  gap: '10px',
+  border: '2px solid #ff1493',
+  boxShadow: '0 3px 6px rgba(255, 20, 147, 0.3)'
 };
 
 const playerInfoStyle = {
   display: 'flex',
-  flexDirection: 'column',
-  gap: '8px',
+  alignItems: 'center',
+  gap: '15px',
   flex: 1
 };
 
 const playerBadgeStyle = {
   display: 'flex',
   alignItems: 'center',
-  gap: '10px',
+  gap: '8px',
   flexWrap: 'wrap'
 };
 
 const playerNameStyle = {
   fontWeight: 'bold',
-  fontSize: '18px',
-  color: 'white'
+  fontSize: '14px',
+  color: 'white',
+  textShadow: '0 1px 2px rgba(0, 0, 0, 0.5)'
 };
 
 const roleBadgeStyle = (isCantador) => ({
-  backgroundColor: isCantador ? '#FF5722' : '#4CAF50',
+  backgroundColor: isCantador ? '#ff1493' : '#ff69b4',
   color: 'white',
-  padding: '5px 10px',
-  borderRadius: '15px',
-  fontSize: '12px',
-  fontWeight: 'bold'
+  padding: '3px 8px',
+  borderRadius: '12px',
+  fontSize: '10px',
+  fontWeight: 'bold',
+  boxShadow: '0 1px 3px rgba(255, 20, 147, 0.3)'
 });
 
 const roomIdStyle = {
-  fontSize: '14px',
-  color: '#ccc'
+  fontSize: '11px',
+  color: '#ff69b4',
+  fontWeight: 'bold',
+  padding: '3px 8px',
+  backgroundColor: 'rgba(255, 20, 147, 0.2)',
+  borderRadius: '8px'
 };
 
 const playersInfoStyle = {
   display: 'flex',
-  flexDirection: 'column',
-  gap: '2px'
+  alignItems: 'center'
 };
 
 const playersCountStyle = {
-  fontSize: '14px',
-  color: '#4CAF50',
-  fontWeight: 'bold'
-};
-
-const playersListPreviewStyle = {
   fontSize: '12px',
-  color: '#666',
-  fontStyle: 'italic',
-  maxWidth: '200px',
-  overflow: 'hidden',
-  textOverflow: 'ellipsis',
-  whiteSpace: 'nowrap'
+  color: '#ff69b4',
+  fontWeight: 'bold',
+  padding: '4px 8px',
+  backgroundColor: 'rgba(255, 20, 147, 0.2)',
+  borderRadius: '8px'
 };
 
 const currentCardStyle = {
-  fontSize: '16px',
+  fontSize: '14px',
   fontWeight: 'bold',
   color: 'white',
   textAlign: 'center',
-  flex: 1,
-  minWidth: '200px'
+  minWidth: '150px'
 };
 
 const currentCardContentStyle = {
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'center',
-  gap: '5px'
+  gap: '3px'
 };
 
 const currentCardMainStyle = {
-  fontSize: '20px',
+  fontSize: '16px',
   fontWeight: 'bold',
-  color: '#FFD700'
+  color: '#FFD700',
+  textShadow: '0 1px 2px rgba(0, 0, 0, 0.5)'
 };
 
 const cardNameStyle = {
-  fontSize: '14px',
-  color: '#ccc'
+  fontSize: '12px',
+  color: '#ff69b4'
 };
 
 const waitingStyle = {
-  fontSize: '16px',
-  color: '#ccc',
+  fontSize: '14px',
+  color: '#ff69b4',
   fontStyle: 'italic'
 };
 
 const playersPanelStyle = {
-  backgroundColor: 'rgba(255, 87, 34, 0.1)',
-  padding: '15px',
-  borderRadius: '10px',
-  marginBottom: '15px',
-  border: '2px solid #FF5722'
+  backgroundColor: 'rgba(255, 20, 147, 0.1)',
+  padding: '10px',
+  borderRadius: '12px',
+  marginBottom: '12px',
+  border: '1px solid #ff1493',
+  boxShadow: '0 2px 5px rgba(255, 20, 147, 0.3)'
 };
 
 const playersTitleStyle = {
   fontWeight: 'bold',
-  color: '#FF5722',
-  marginBottom: '10px',
-  textAlign: 'center'
+  color: '#ff69b4',
+  marginBottom: '8px',
+  textAlign: 'center',
+  fontSize: '13px'
 };
 
 const playersListStyle = {
-  display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-  gap: '8px'
+  display: 'flex',
+  flexWrap: 'wrap',
+  gap: '6px',
+  justifyContent: 'center'
 };
 
 const playerItemStyle = (isCurrent) => ({
   display: 'flex',
   alignItems: 'center',
-  gap: '8px',
-  padding: '8px',
-  backgroundColor: isCurrent ? '#FF5722' : 'rgba(255, 87, 34, 0.1)',
-  color: isCurrent ? 'white' : '#333',
-  borderRadius: '5px',
-  fontSize: '14px'
+  gap: '4px',
+  padding: '4px 8px',
+  backgroundColor: isCurrent ? '#ff1493' : 'rgba(255, 20, 147, 0.1)',
+  color: isCurrent ? 'white' : '#ff69b4',
+  borderRadius: '6px',
+  fontSize: '11px',
+  border: '1px solid #ff1493'
 });
 
-const playerIconStyle = {
-  fontSize: '16px'
-};
-
 const controlPanelStyle = {
-  backgroundColor: 'white',
-  padding: '20px',
-  borderRadius: '10px',
-  marginBottom: '20px',
-  boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
+  backgroundColor: 'rgba(0, 0, 0, 0.8)',
+  padding: '12px',
+  borderRadius: '12px',
+  marginBottom: '15px',
+  boxShadow: '0 2px 5px rgba(255, 20, 147, 0.3)',
+  border: '1px solid #ff1493'
 };
 
 const cantadorPanelStyle = {
@@ -503,95 +568,156 @@ const jugadorPanelStyle = {
   textAlign: 'center',
   display: 'flex',
   flexDirection: 'column',
-  gap: '15px'
+  gap: '10px',
+  alignItems: 'center'
 };
+
 
 const buttonContainerStyle = {
   display: 'flex',
   justifyContent: 'center',
-  gap: '20px',
-  flexWrap: 'wrap',
-  marginBottom: '15px'
+  alignItems: 'center', 
+  gap: '12px',
+  flexWrap: 'wrap'
 };
 
 const cantarButtonStyle = {
-  padding: '15px 25px',
-  backgroundColor: '#FF5722',
+  padding: '10px 16px',
+  background: 'linear-gradient(135deg, #ff1493 0%, #000000 100%)',
   color: 'white',
-  border: 'none',
-  borderRadius: '8px',
+  border: '1px solid #ff1493',
+  borderRadius: '6px',
   cursor: 'pointer',
-  fontSize: '16px',
+  fontSize: '13px',
   fontWeight: 'bold',
-  minWidth: '180px'
+  minWidth: '100px',
+  boxShadow: '0 2px 4px rgba(255, 20, 147, 0.4)',
+  transition: 'all 0.2s',
+  '&:hover:not(:disabled)': {
+    transform: 'translateY(-1px)',
+    boxShadow: '0 3px 6px rgba(255, 20, 147, 0.6)'
+  },
+  '&:disabled': {
+    background: 'linear-gradient(135deg, #666 0%, #333 100%)',
+    borderColor: '#666',
+    cursor: 'not-allowed',
+    transform: 'none',
+    boxShadow: 'none'
+  }
 };
 
 const reclamarButtonStyle = (hasWinningPattern) => ({
-  padding: '15px 25px',
-  backgroundColor: hasWinningPattern ? '#FF9800' : '#4CAF50',
+  padding: '10px 16px',
+  background: hasWinningPattern
+    ? 'linear-gradient(135deg, #FFD700 0%, #ff9800 100%)'
+    : 'linear-gradient(135deg, #ff69b4 0%, #2a2a2a 100%)',
   color: 'white',
-  border: 'none',
-  borderRadius: '8px',
+  border: hasWinningPattern ? '1px solid #FFD700' : '1px solid #ff69b4',
+  borderRadius: '6px',
   cursor: 'pointer',
-  fontSize: '16px',
+  fontSize: '13px',
   fontWeight: 'bold',
-  minWidth: '180px'
+  minWidth: '100px',
+  boxShadow: hasWinningPattern
+    ? '0 2px 4px rgba(255, 215, 0, 0.4)'
+    : '0 2px 4px rgba(255, 105, 180, 0.4)',
+  transition: 'all 0.2s',
+  textShadow: '0 1px 1px rgba(0, 0, 0, 0.5)',
+  '&:hover:not(:disabled)': {
+    transform: 'translateY(-1px)',
+    boxShadow: hasWinningPattern
+      ? '0 3px 6px rgba(255, 215, 0, 0.6)'
+      : '0 3px 6px rgba(255, 105, 180, 0.6)'
+  },
+  '&:disabled': {
+    background: 'linear-gradient(135deg, #666 0%, #333 100%)',
+    borderColor: '#666',
+    cursor: 'not-allowed',
+    transform: 'none',
+    boxShadow: 'none'
+  }
 });
 
-
-
 const patternIndicatorStyle = {
-  color: '#4CAF50',
+  color: '#ff69b4',
   fontWeight: 'bold',
-  fontSize: '14px'
+  fontSize: '11px'
 };
 
 const winnerStyle = (isPlayer) => ({
-  backgroundColor: isPlayer ? '#4CAF50' : '#FF9800',
+  background: isPlayer
+    ? 'linear-gradient(135deg, #4CAF50 0%, #2a2a2a 100%)'
+    : 'linear-gradient(135deg, #FF9800 0%, #2a2a2a 100%)',
   color: 'white',
-  padding: '20px',
+  padding: '12px',
   borderRadius: '10px',
-  marginBottom: '20px',
+  marginBottom: '15px',
   textAlign: 'center',
-  fontSize: '20px',
-  fontWeight: 'bold'
+  fontSize: '16px',
+  fontWeight: 'bold',
+  border: '1px solid #ff1493',
+  boxShadow: '0 4px 8px rgba(255, 20, 147, 0.5)'
 });
 
 const gridStyle = {
   display: 'grid',
   gridTemplateColumns: 'repeat(4, 1fr)',
-  gap: '10px',
+  gap: '8px',
   margin: '0 auto',
-  maxWidth: '600px'
+  maxWidth: '500px'
 };
 
 const loadingStyle = {
   gridColumn: '1 / -1',
   textAlign: 'center',
-  padding: '40px',
-  fontSize: '18px',
-  color: '#666'
+  padding: '30px',
+  fontSize: '16px',
+  color: '#ff69b4'
 };
 
 const gameInfoStyle = {
-  marginTop: '20px',
-  padding: '15px',
-  backgroundColor: 'white',
+  marginTop: '15px',
+  padding: '10px',
+  backgroundColor: 'rgba(0, 0, 0, 0.8)',
   borderRadius: '8px',
   textAlign: 'center',
-  fontSize: '14px',
+  fontSize: '12px',
   fontWeight: 'bold',
   display: 'flex',
   justifyContent: 'center',
   alignItems: 'center',
-  gap: '20px',
-  flexWrap: 'wrap'
+  gap: '15px',
+  flexWrap: 'wrap',
+  border: '1px solid #ff1493',
+  color: '#ffffffff'
 };
 
 const validPatternStyle = {
-  color: '#4CAF50'
+  color: '#FFD700',
+  textShadow: '0 1px 1px rgba(0, 0, 0, 0.5)'
+};
+const markerSelectorStyle = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: '8px'
 };
 
-const waitingCantadorStyle = {
-  color: '#FF5722'
+const markerLabelStyle = {
+  fontSize: '12px',
+  color: '#ffffffff',
+  fontWeight: 'bold',
+  whiteSpace: 'nowrap' 
+};
+
+// Si quieres que el selector tenga la misma altura que los botones, puedes ajustar:
+const markerSelectStyle = {
+  padding: '8px 10px', // Similar padding a los botones
+  borderRadius: '6px',
+  border: '1px solid #ff1493',
+  backgroundColor: 'rgba(0, 0, 0, 0.8)',
+  color: '#ff69b4',
+  fontSize: '12px',
+  minWidth: '80px',
+  height: '38px', // Altura similar a los botones
+  boxSizing: 'border-box'
 };

@@ -9,7 +9,8 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: '*' } });
 
-const PORT = process.env.PORT || 3000;
+const PORT = 3000;
+
 
 // ======== UTILIDADES ========
 
@@ -234,4 +235,8 @@ app.get('/', (req, res) => {
   res.send('Servidor de Lotería Mexicana funcionando 🎉');
 });
 
-server.listen(PORT, () => console.log(`Servidor escuchando en puerto ${PORT}`));
+// ======== SOLO ESTE server.listen ========
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`Servidor escuchando en http://localhost:${PORT}`);
+  console.log(`También accesible desde tu IP local`);
+});
